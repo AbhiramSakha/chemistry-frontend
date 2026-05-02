@@ -1,23 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-/* ══════════════════════════════════════════════════════════════
-   CHEMISTRY AI — LOGIN v3.0  "Real-World 3D"
-   ──────────────────────────────────────────────────────────────
-   Visual stack:
-   • Three.js rotating 3D atom (nucleus + 3 orbital rings + 3 electrons)
-   • 2D glowing particle network (canvas)
-   • Perspective 3D card tilt on mouse move
-   • Animated scanline overlay
-   • Radial ambient orbs (CSS animated)
-   • Isometric grid background
-   • Periodic table element strip (rotating highlight)
-   • Feature info grid, tech badges, stats
-   • Typed headline (cycles through phrases)
-   • Shimmer gradient submit button
-   • Password strength meter
-   • Progress steps indicator
-══════════════════════════════════════════════════════════════ */
-
 export default function Login({ onLoginSuccess }) {
 
   /* ── Form state ────────────────────────────────────── */
@@ -30,6 +12,9 @@ export default function Login({ onLoginSuccess }) {
   const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading,     setLoading]     = useState(false);
+
+  /* ── Responsive state ───────────────────────────────── */
+  const [isMobile,    setIsMobile]    = useState(false);
 
   /* ── Animation state ────────────────────────────────── */
   const [mousePos,      setMousePos]      = useState({ x:0, y:0 });
@@ -48,6 +33,14 @@ export default function Login({ onLoginSuccess }) {
   const timerRef   = useRef(null);
 
   const HEADLINES = ["Explore Chemistry","Master Reactions","Decode Elements","Ace Your Exams","Think Molecular"];
+
+  /* ── Detect mobile ─────────────────────────────────── */
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   /* ── Typing animation ─────────────────────────────── */
   useEffect(() => {
@@ -75,25 +68,27 @@ export default function Login({ onLoginSuccess }) {
     return () => clearTimeout(timerRef.current);
   }, []);
 
-  /* ── Global mouse parallax ─────────────────────────── */
+  /* ── Global mouse parallax (desktop only) ──────────── */
   useEffect(() => {
+    if (isMobile) return;
     const h = (e) => setMousePos({
       x: (e.clientX / window.innerWidth  - 0.5) * 38,
       y: (e.clientY / window.innerHeight - 0.5) * 26,
     });
     window.addEventListener("mousemove", h);
     return () => window.removeEventListener("mousemove", h);
-  }, []);
+  }, [isMobile]);
 
-  /* ── Card 3-D tilt ───────────────────────────────────── */
+  /* ── Card 3-D tilt (desktop only) ───────────────────── */
   const onCardMove = useCallback((e) => {
+    if (isMobile) return;
     const el = cardRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const dx = (e.clientX - (r.left + r.width  / 2)) / (r.width  / 2);
     const dy = (e.clientY - (r.top  + r.height / 2)) / (r.height / 2);
     setCardTilt({ x: -dy * 9, y: dx * 9 });
-  }, []);
+  }, [isMobile]);
   const onCardLeave = useCallback(() => setCardTilt({ x:0, y:0 }), []);
 
   /* ── 2D glowing particle network ─────────────────────── */
@@ -103,8 +98,9 @@ export default function Login({ onLoginSuccess }) {
     const ctx = cv.getContext("2d");
     let W = cv.width  = window.innerWidth;
     let H = cv.height = window.innerHeight;
+    const ptCount = isMobile ? 36 : 72;
 
-    const PTS = Array.from({ length: 72 }, () => ({
+    const PTS = Array.from({ length: ptCount }, () => ({
       x: Math.random() * W, y: Math.random() * H,
       vx: (Math.random() - 0.5) * 0.34,
       vy: (Math.random() - 0.5) * 0.34,
@@ -143,7 +139,7 @@ export default function Login({ onLoginSuccess }) {
     const resize = () => { W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; };
     window.addEventListener("resize", resize);
     return () => { cancelAnimationFrame(raf2d.current); window.removeEventListener("resize", resize); };
-  }, []);
+  }, [isMobile]);
 
   /* ── Three.js 3D rotating atom ──────────────────────── */
   useEffect(() => {
@@ -163,21 +159,15 @@ export default function Login({ onLoginSuccess }) {
       const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 100);
       camera.position.z = 7;
 
-      /* Nucleus core */
       const nucGeo = new THREE.SphereGeometry(0.55, 48, 48);
-      const nucMat = new THREE.MeshPhongMaterial({
-        color: 0x0ea5e9, emissive: 0x0c4a6e, shininess: 150,
-        transparent: true, opacity: 0.95,
-      });
+      const nucMat = new THREE.MeshPhongMaterial({ color: 0x0ea5e9, emissive: 0x0c4a6e, shininess: 150, transparent: true, opacity: 0.95 });
       const nucleus = new THREE.Mesh(nucGeo, nucMat);
       scene.add(nucleus);
 
-      /* Nucleus glow halo */
       const halGeo = new THREE.SphereGeometry(0.78, 32, 32);
       const halMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.1 });
       scene.add(new THREE.Mesh(halGeo, halMat));
 
-      /* Orbital rings */
       const makeRing = (rx, ry, rz, color) => {
         const geo = new THREE.TorusGeometry(2.3, 0.022, 16, 100);
         const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55 });
@@ -192,25 +182,18 @@ export default function Login({ onLoginSuccess }) {
         makeRing(-Math.PI / 3, 0, -Math.PI / 5, 0x06b6d4),
       ];
 
-      /* Electrons */
       const makeElec = (color) => {
         const geo = new THREE.SphereGeometry(0.14, 20, 20);
         const mat = new THREE.MeshPhongMaterial({ color, emissive: color, shininess: 220 });
         const m   = new THREE.Mesh(geo, mat);
-        /* Glow */
         const hgeo = new THREE.SphereGeometry(0.26, 20, 20);
         const hmat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2 });
         m.add(new THREE.Mesh(hgeo, hmat));
         scene.add(m);
         return m;
       };
-      const elecs = [
-        makeElec(0x38bdf8),
-        makeElec(0xa78bfa),
-        makeElec(0x34d399),
-      ];
+      const elecs = [makeElec(0x38bdf8), makeElec(0xa78bfa), makeElec(0x34d399)];
 
-      /* Lights */
       scene.add(new THREE.AmbientLight(0x1e3a5f, 3.5));
       const dl = new THREE.DirectionalLight(0x38bdf8, 3);
       dl.position.set(5, 5, 5);
@@ -222,33 +205,25 @@ export default function Login({ onLoginSuccess }) {
       pl2.position.set(3, -4, -2);
       scene.add(pl2);
 
-      /* Orbital tilt configs */
-      const tilts = [
-        [0, 0, 0],
-        [Math.PI / 3,  0, Math.PI / 5],
-        [-Math.PI / 3, 0, -Math.PI / 5],
-      ];
-
+      const tilts = [[0,0,0],[Math.PI/3,0,Math.PI/5],[-Math.PI/3,0,-Math.PI/5]];
       let t = 0;
       const animate = () => {
         threeRaf = requestAnimationFrame(animate);
         t += 0.011;
         nucleus.rotation.y += 0.007;
         nucleus.rotation.x += 0.003;
-
         elecs.forEach((e, i) => {
           const angle = t * [1, 0.72, 1.28][i] + [0, 2.1, 4.2][i];
           const R = 2.3;
           const bx = Math.cos(angle) * R;
           const bz = Math.sin(angle) * R;
-          const [rx, , rz] = tilts[i];
+          const [rx,,rz] = tilts[i];
           const cx = Math.cos(rz), sx = Math.sin(rz);
           const cy = Math.cos(rx), sy = Math.sin(rx);
           const y1 = -bz * sy;
           const z1 =  bz * cy;
           e.position.set(bx * cx - y1 * sx, bx * sx + y1 * cx, z1);
         });
-
         rings.forEach((r, i) => { r.rotation.y += [0.004, 0.003, 0.005][i]; });
         renderer.render(scene, camera);
       };
@@ -297,7 +272,7 @@ export default function Login({ onLoginSuccess }) {
       const users = JSON.parse(localStorage.getItem("chem-users")) || [];
       const ok = users.find(u => u.email === email && u.password === password);
       if (ok) { onLoginSuccess(); }
-      else      { setError("Invalid email or password."); }
+      else     { setError("Invalid email or password."); }
     });
   };
 
@@ -334,11 +309,74 @@ export default function Login({ onLoginSuccess }) {
     : mode === "signup" ? (confirm ? 2 : password ? 1 : 0)
     : (password ? 1 : 0);
 
-  const cardTransform = `perspective(1100px) rotateX(${cardTilt.x}deg) rotateY(${cardTilt.y}deg)`;
+  const cardTransform = isMobile
+    ? "none"
+    : `perspective(1100px) rotateX(${cardTilt.x}deg) rotateY(${cardTilt.y}deg)`;
+
+  /* ── Mobile hero strip (replaces big left panel on mobile) */
+  const MobileHero = () => (
+    <div style={R.mobileHero}>
+      <div style={R.mobileBadge} className="fadeIn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.8">
+          <circle cx="12" cy="12" r="2.5" fill="#38bdf8"/>
+          <ellipse cx="12" cy="12" rx="10" ry="4"/>
+          <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/>
+          <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>
+        </svg>
+        <span style={R.badgeText}>ChemBot AI</span>
+        <span style={R.badgePill}>KIET · JNTU Kakinada</span>
+      </div>
+
+      <h1 style={R.mobileH1} className="fadeIn">
+        <span style={R.typed}>{typedText || "Explore Chemistry"}<span style={R.cursor}>|</span></span>
+        <div style={{ marginTop: 4 }}>
+          <span style={R.hlWith}>with </span>
+          <span style={R.hlAI}>AI</span>
+        </div>
+      </h1>
+
+      {/* Mini 3D atom */}
+      <div style={R.mobileAtomWrap} className="fadeIn">
+        <canvas ref={threeRef} style={{ width:"100%", height:"100%", borderRadius:12, background:"radial-gradient(ellipse at center,rgba(56,189,248,0.04) 0%,transparent 70%)" }} />
+        <div style={{ position:"absolute", bottom:4, left:"50%", transform:"translateX(-50%)", fontSize:8, color:"#38bdf8", fontWeight:700, letterSpacing:1.3, textTransform:"uppercase", opacity:0.55, whiteSpace:"nowrap" }}>3D Molecular Model · WebGL</div>
+      </div>
+
+      {/* Mobile element strip */}
+      <div style={R.mobileElemStrip} className="fadeIn">
+        {ELEMENTS.slice(0,6).map((el, i) => (
+          <div key={el.s} style={{
+            ...R.elemCell,
+            background: i === activeElem % 6 ? el.c+"1a" : "rgba(255,255,255,0.025)",
+            borderColor: i === activeElem % 6 ? el.c : "rgba(255,255,255,0.07)",
+            color: i === activeElem % 6 ? el.c : "#475569",
+            transform: i === activeElem % 6 ? "scale(1.12) translateY(-3px)" : "scale(1)",
+            boxShadow: i === activeElem % 6 ? `0 4px 14px ${el.c}40` : "none",
+            transition: "all 0.35s ease",
+            minWidth: 32, padding: "4px 4px",
+          }}>
+            <div style={{ fontSize:6, fontWeight:700, opacity:0.7 }}>{el.n}</div>
+            <div style={{ fontSize:13, fontWeight:900 }}>{el.s}</div>
+            <div style={{ fontSize:6, opacity:0.6, textAlign:"center" }}>{el.nm}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Mobile stats */}
+      <div style={R.mobileStats} className="fadeIn">
+        {STATS.map(({ n, l, ic }) => (
+          <div key={l} style={R.mobileStatBox}>
+            <span style={{ fontSize:13 }}>{ic}</span>
+            <span style={{ fontSize:14, fontWeight:900, color:"#38bdf8", lineHeight:1 }}>{n}</span>
+            <span style={{ fontSize:9, color:"#64748b", fontWeight:600 }}>{l}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   /* ══════════════════════════════════════ RENDER ══════════════════════════════════════ */
   return (
-    <div style={R.root}>
+    <div style={{ ...R.root, flexDirection: isMobile ? "column" : "row" }}>
       <style>{CSS}</style>
 
       {/* 2D particles */}
@@ -358,115 +396,120 @@ export default function Login({ onLoginSuccess }) {
       <div style={R.orb2} />
       <div style={R.orb3} />
 
-      {/* ═══════════ LEFT PANEL ═══════════ */}
-      <div style={{ ...R.left, transform: `translate(${mousePos.x * 0.055}px, ${mousePos.y * 0.055}px)` }}>
+      {/* ═══════════ MOBILE HERO (top) OR DESKTOP LEFT PANEL ═══════════ */}
+      {isMobile ? (
+        <MobileHero />
+      ) : (
+        <div style={{ ...R.left, transform: `translate(${mousePos.x * 0.055}px, ${mousePos.y * 0.055}px)` }}>
+          {/* Logo */}
+          <div style={R.badge} className="fadeIn">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="2.5" fill="#38bdf8"/>
+              <ellipse cx="12" cy="12" rx="10" ry="4"/>
+              <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/>
+              <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>
+            </svg>
+            <span style={R.badgeText}>ChemBot AI</span>
+            <span style={R.badgePill}>KIET · JNTU Kakinada</span>
+          </div>
 
-        {/* Logo */}
-        <div style={R.badge} className="fadeIn">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.8">
-            <circle cx="12" cy="12" r="2.5" fill="#38bdf8"/>
-            <ellipse cx="12" cy="12" rx="10" ry="4"/>
-            <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/>
-            <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>
-          </svg>
-          <span style={R.badgeText}>ChemBot AI</span>
-          <span style={R.badgePill}>KIET · JNTU Kakinada</span>
-        </div>
-
-        {/* Typed headline */}
-        <h1 style={R.h1} className="slideR">
-  {/* Animated headline */}
-  <span style={R.typed}>
-    {typedText || "Explore Chemistry"}
-    <span style={R.cursor}>|</span>
-  </span>
-
-  {/* Static line */}
-  <div style={{ marginTop: 6 }}>
-    <span style={R.hlWith}>with </span>
-    <span style={R.hlAI}>AI</span>
-  </div>
-</h1>
-
-        <p style={R.sub} className="fadeIn">
-          A university-grade platform powered by{" "}
-          <strong style={{ color:"#38bdf8" }}>FLAN-T5 + LoRA</strong> — point-wise
-          chemistry answers, molecular diagrams, PDF analysis, interactive quizzes, and
-          multilingual support across 11 languages.
-        </p>
-
-        {/* ── 3D Atom canvas ── */}
-        <div style={R.atomWrap} className="fadeIn">
-          <canvas ref={threeRef} style={R.threeCv} />
-          {/* Floating molecule badges */}
-          {FLOAT_MOLS.map((m, i) => (
-            <div key={m.f} style={{ ...R.floatMol, top:`${m.top}%`, left:`${m.left}%`, animationDelay:`${i*0.8}s`, borderColor:m.c+"44", background:m.c+"10", color:m.c }}>
-              <span style={{ fontSize:11, fontWeight:900 }}>{m.f}</span>
-              <span style={{ fontSize:9, opacity:0.65 }}>{m.mw}</span>
+          <h1 style={R.h1} className="slideR">
+            <span style={R.typed}>{typedText || "Explore Chemistry"}<span style={R.cursor}>|</span></span>
+            <div style={{ marginTop: 6 }}>
+              <span style={R.hlWith}>with </span>
+              <span style={R.hlAI}>AI</span>
             </div>
-          ))}
-          <div style={R.atomLbl}>3D Molecular Model · Real-time WebGL</div>
+          </h1>
+
+          <p style={R.sub} className="fadeIn">
+            A university-grade platform powered by{" "}
+            <strong style={{ color:"#38bdf8" }}>FLAN-T5 + LoRA</strong> — point-wise
+            chemistry answers, molecular diagrams, PDF analysis, interactive quizzes, and
+            multilingual support across 11 languages.
+          </p>
+
+          {/* 3D Atom canvas */}
+          <div style={R.atomWrap} className="fadeIn">
+            <canvas ref={threeRef} style={R.threeCv} />
+            {FLOAT_MOLS.map((m, i) => (
+              <div key={m.f} style={{ ...R.floatMol, top:`${m.top}%`, left:`${m.left}%`, animationDelay:`${i*0.8}s`, borderColor:m.c+"44", background:m.c+"10", color:m.c }}>
+                <span style={{ fontSize:11, fontWeight:900 }}>{m.f}</span>
+                <span style={{ fontSize:9, opacity:0.65 }}>{m.mw}</span>
+              </div>
+            ))}
+            <div style={R.atomLbl}>3D Molecular Model · Real-time WebGL</div>
+          </div>
+
+          {/* Features grid */}
+          <div style={R.featGrid} className="fadeIn">
+            {FEATS.map((f,i) => (
+              <div key={f.t} style={{ ...R.featCard, animationDelay:`${i*0.09}s` }} className="fadeIn"
+                onMouseEnter={e => { e.currentTarget.style.background="rgba(56,189,248,0.07)"; e.currentTarget.style.borderColor="rgba(56,189,248,0.25)"; e.currentTarget.style.transform="translateY(-2px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.07)"; e.currentTarget.style.transform="translateY(0)"; }}>
+                <span style={{ fontSize:19 }}>{f.i}</span>
+                <span style={{ color:"#f1f5f9", fontSize:11, fontWeight:700, lineHeight:1.3 }}>{f.t}</span>
+                <span style={{ color:"#64748b", fontSize:10, lineHeight:1.4, marginTop:1 }}>{f.d}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Periodic table strip */}
+          <div style={R.elemStrip} className="fadeIn">
+            {ELEMENTS.map((el, i) => (
+              <div key={el.s} style={{
+                ...R.elemCell,
+                background: i === activeElem ? el.c+"1a" : "rgba(255,255,255,0.025)",
+                borderColor: i === activeElem ? el.c : "rgba(255,255,255,0.07)",
+                color: i === activeElem ? el.c : "#475569",
+                transform: i === activeElem ? "scale(1.14) translateY(-4px)" : "scale(1)",
+                boxShadow: i === activeElem ? `0 4px 18px ${el.c}40` : "none",
+                transition: "all 0.35s ease",
+              }}>
+                <div style={{ fontSize:7, fontWeight:700, opacity:0.7 }}>{el.n}</div>
+                <div style={{ fontSize:14, fontWeight:900 }}>{el.s}</div>
+                <div style={{ fontSize:7, opacity:0.6, textAlign:"center" }}>{el.nm}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Stats */}
+          <div style={R.stats} className="fadeIn">
+            {STATS.map(({ n, l, ic }) => (
+              <div key={l} style={R.statBox}>
+                <span style={{ fontSize:16 }}>{ic}</span>
+                <span style={R.statN}>{n}</span>
+                <span style={R.statL}>{l}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Tech stack */}
+          <div style={R.techRow} className="fadeIn">
+            {["FLAN-T5","LoRA Adapter","FastAPI","MongoDB","RDKit","PyMuPDF","googletrans"].map(t => (
+              <span key={t} style={R.tech}>{t}</span>
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* ── Features grid ── */}
-        <div style={R.featGrid} className="fadeIn">
-          {FEATS.map((f,i) => (
-            <div key={f.t} style={{ ...R.featCard, animationDelay:`${i*0.09}s` }} className="fadeIn"
-              onMouseEnter={e => { e.currentTarget.style.background="rgba(56,189,248,0.07)"; e.currentTarget.style.borderColor="rgba(56,189,248,0.25)"; e.currentTarget.style.transform="translateY(-2px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.07)"; e.currentTarget.style.transform="translateY(0)"; }}>
-              <span style={{ fontSize:19 }}>{f.i}</span>
-              <span style={{ color:"#f1f5f9", fontSize:11, fontWeight:700, lineHeight:1.3 }}>{f.t}</span>
-              <span style={{ color:"#64748b", fontSize:10, lineHeight:1.4, marginTop:1 }}>{f.d}</span>
-            </div>
-          ))}
-        </div>
+      {/* ═══════════ RIGHT PANEL / MOBILE FULL-WIDTH FORM ═══════════ */}
+      <div style={isMobile ? R.mobileFormWrapper : R.right}>
+        {!isMobile && (
+          <>
+            <div style={{ ...R.shadow, transform:"translate(10px,10px) scale(0.98)" }} />
+            <div style={{ ...R.shadow, transform:"translate(5px,5px) scale(0.99)", opacity:0.5 }} />
+          </>
+        )}
 
-        {/* ── Periodic table strip ── */}
-        <div style={R.elemStrip} className="fadeIn">
-          {ELEMENTS.map((el, i) => (
-            <div key={el.s} style={{
-              ...R.elemCell,
-              background: i === activeElem ? el.c+"1a" : "rgba(255,255,255,0.025)",
-              borderColor: i === activeElem ? el.c : "rgba(255,255,255,0.07)",
-              color: i === activeElem ? el.c : "#475569",
-              transform: i === activeElem ? "scale(1.14) translateY(-4px)" : "scale(1)",
-              boxShadow: i === activeElem ? `0 4px 18px ${el.c}40` : "none",
-              transition: "all 0.35s ease",
-            }}>
-              <div style={{ fontSize:7, fontWeight:700, opacity:0.7 }}>{el.n}</div>
-              <div style={{ fontSize:14, fontWeight:900 }}>{el.s}</div>
-              <div style={{ fontSize:7, opacity:0.6, textAlign:"center" }}>{el.nm}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Stats ── */}
-        <div style={R.stats} className="fadeIn">
-          {STATS.map(({ n, l, ic }) => (
-            <div key={l} style={R.statBox}>
-              <span style={{ fontSize:16 }}>{ic}</span>
-              <span style={R.statN}>{n}</span>
-              <span style={R.statL}>{l}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Tech stack ── */}
-        <div style={R.techRow} className="fadeIn">
-          {["FLAN-T5","LoRA Adapter","FastAPI","MongoDB","RDKit","PyMuPDF","googletrans"].map(t => (
-            <span key={t} style={R.tech}>{t}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* ═══════════ RIGHT PANEL ═══════════ */}
-      <div style={R.right}>
-        {/* Depth shadow layers for fake 3D card lift */}
-        <div style={{ ...R.shadow, transform:"translate(10px,10px) scale(0.98)" }} />
-        <div style={{ ...R.shadow, transform:"translate(5px,5px) scale(0.99)", opacity:0.5 }} />
-
-        <div ref={cardRef} style={{ ...R.card, transform: cardTransform }}
-          onMouseMove={onCardMove} onMouseLeave={onCardLeave}>
+        <div ref={cardRef}
+          style={{
+            ...R.card,
+            transform: cardTransform,
+            ...(isMobile ? R.mobileCard : {}),
+          }}
+          onMouseMove={onCardMove}
+          onMouseLeave={onCardLeave}
+        >
 
           {/* Top glow line */}
           <div style={R.cardGlow} />
@@ -482,7 +525,7 @@ export default function Login({ onLoginSuccess }) {
             { bottom:0, right:0, borderBottom:"1.5px solid #38bdf8", borderRight:"1.5px solid #38bdf8" },
           ].map((cs, i) => <div key={i} style={{ position:"absolute", width:14, height:14, ...cs }} />)}
 
-          {/* ── Mode tabs ── */}
+          {/* Mode tabs */}
           <div style={R.tabs}>
             {["login","signup"].map(m => (
               <button key={m} style={{ ...R.tab, ...(mode===m ? R.tabOn : {}) }} onClick={() => switchMode(m)}>
@@ -493,7 +536,7 @@ export default function Login({ onLoginSuccess }) {
 
           {/* Heading */}
           <div style={{ marginBottom:18 }}>
-            <h2 style={R.title}>
+            <h2 style={{ ...R.title, fontSize: isMobile ? 18 : 20 }}>
               {mode==="login" ? "Welcome Back 👋" : mode==="signup" ? "Create Account 🚀" : "Reset Password 🔑"}
             </h2>
             <p style={R.titleSub}>
@@ -657,6 +700,7 @@ const STATS = [
    CSS STRING (injected via <style>)
 ───────────────────────────────────────────── */
 const CSS = `
+  * { box-sizing: border-box; }
   @keyframes blink     { 0%,100%{opacity:1} 50%{opacity:0} }
   @keyframes spin      { to{transform:rotate(360deg)} }
   @keyframes floatUp   { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-9px)} }
@@ -694,6 +738,12 @@ const CSS = `
   }
   button:hover:not(:disabled) { filter:brightness(1.1); }
   ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:rgba(56,189,248,0.3);border-radius:3px}
+
+  /* Mobile touch improvements */
+  @media (max-width: 767px) {
+    input, button { font-size: 16px !important; } /* prevents iOS zoom on focus */
+    button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  }
 `;
 
 /* ─────────────────────────────────────────────
@@ -730,9 +780,9 @@ const R = {
   orb2: { position:"fixed", width:520, height:520, borderRadius:"50%", zIndex:0, pointerEvents:"none", background:"radial-gradient(circle,rgba(99,102,241,0.09) 0%,transparent 70%)", bottom:-160, right:280, filter:"blur(80px)", animation:"orb2anim 16s ease-in-out infinite" },
   orb3: { position:"fixed", width:320, height:320, borderRadius:"50%", zIndex:0, pointerEvents:"none", background:"radial-gradient(circle,rgba(34,197,94,0.06) 0%,transparent 70%)", top:"42%", right:"9%", filter:"blur(70px)", animation:"orb1anim 20s ease-in-out infinite reverse" },
 
-  /* LEFT */
+  /* ── DESKTOP LEFT ── */
   left: {
-    flex:1,padding:"70px 50px 48px 58px", position:"relative", zIndex:2,
+    flex:1, padding:"70px 50px 48px 58px", position:"relative", zIndex:2,
     display:"flex", flexDirection:"column", justifyContent:"center",
     gap:0, transition:"transform 0.12s ease-out",
     overflowY:"auto", maxHeight:"100vh",
@@ -746,93 +796,46 @@ const R = {
   badgeText: { fontSize:13, fontWeight:800, color:"#38bdf8", letterSpacing:0.4 },
   badgePill: { fontSize:9,  fontWeight:700, color:"#475569", marginLeft:4, letterSpacing:0.5 },
 
-  h1: {
-  fontSize: 44,
-  fontWeight: 900,
-  lineHeight: 1.2,
-  color: "#fff",
-  margin: "0 0 18px",
-  letterSpacing: -1,
-},
+  h1: { fontSize:44, fontWeight:900, lineHeight:1.2, color:"#fff", margin:"0 0 18px", letterSpacing:-1 },
 
-typed: {
-  display: "block",
-  minHeight: "1.2em",
-  fontWeight: 900,
-
-  background: "linear-gradient(120deg, #38bdf8, #818cf8, #34d399)",
-  backgroundSize: "200% auto",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent",
-
-  textShadow: "0 0 18px rgba(56,189,248,0.35)",
-  animation: "shimmer 4s linear infinite",
-},
-
-withRow: {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  marginTop: 6,
-},
-
-hlWith: {
-  color: "#64748b",
-  fontWeight: 400,
-  fontSize: 22,
-},
-
-hlAI: {
-  fontSize: 34,
-  fontWeight: 900,
-  background: "linear-gradient(120deg,#38bdf8,#818cf8,#34d399)",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent",
-},
+  typed: {
+    display:"block", minHeight:"1.2em", fontWeight:900,
+    background:"linear-gradient(120deg, #38bdf8, #818cf8, #34d399)",
+    backgroundSize:"200% auto",
+    WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
+    textShadow:"0 0 18px rgba(56,189,248,0.35)",
+    animation:"shimmer 4s linear infinite",
+  },
+  cursor: { display:"inline-block", animation:"blink 1s step-end infinite", color:"#38bdf8", WebkitTextFillColor:"#38bdf8" },
+  withRow: { display:"flex", alignItems:"center", gap:10, marginTop:6 },
+  hlWith:  { color:"#64748b", fontWeight:400, fontSize:22 },
+  hlAI:    { fontSize:34, fontWeight:900, background:"linear-gradient(120deg,#38bdf8,#818cf8,#34d399)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" },
 
   sub: { fontSize:13, color:"#94a3b8", lineHeight:1.72, maxWidth:490, margin:"0 0 20px" },
 
-  /* 3D atom */
   atomWrap: { position:"relative", width:"100%", maxWidth:400, height:210, marginBottom:18 },
-  threeCv: {
-    width:"100%", height:"100%", borderRadius:14,
-    background:"radial-gradient(ellipse at center,rgba(56,189,248,0.04) 0%,transparent 70%)",
-  },
-  atomLbl: { position:"absolute", bottom:5, left:"50%", transform:"translateX(-50%)", fontSize:9, color:"#38bdf8", fontWeight:700, letterSpacing:1.3, textTransform:"uppercase", opacity:0.55 },
-  floatMol: {
-    position:"absolute", display:"flex", flexDirection:"column", alignItems:"center",
-    padding:"5px 8px", borderRadius:8, border:"1px solid",
-    animation:"floatUp 3.2s ease-in-out infinite", lineHeight:1.2,
-  },
+  threeCv: { width:"100%", height:"100%", borderRadius:14, background:"radial-gradient(ellipse at center,rgba(56,189,248,0.04) 0%,transparent 70%)" },
+  atomLbl: { position:"absolute", bottom:5, left:"50%", transform:"translateX(-50%)", fontSize:9, color:"#38bdf8", fontWeight:700, letterSpacing:1.3, textTransform:"uppercase", opacity:0.55, whiteSpace:"nowrap" },
+  floatMol: { position:"absolute", display:"flex", flexDirection:"column", alignItems:"center", padding:"5px 8px", borderRadius:8, border:"1px solid", animation:"floatUp 3.2s ease-in-out infinite", lineHeight:1.2 },
 
-  /* Feature grid */
   featGrid: { display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:16 },
-  featCard: {
-    padding:"10px 11px", borderRadius:10,
-    background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)",
-    display:"flex", flexDirection:"column", gap:2, cursor:"default", transition:"all 0.22s ease",
-  },
+  featCard: { padding:"10px 11px", borderRadius:10, background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.07)", display:"flex", flexDirection:"column", gap:2, cursor:"default", transition:"all 0.22s ease" },
 
-  /* Periodic strip */
   elemStrip: { display:"flex", gap:5, marginBottom:16, flexWrap:"wrap" },
-  elemCell: {
-    display:"flex", flexDirection:"column", alignItems:"center",
-    padding:"5px 6px", borderRadius:7, border:"1px solid", minWidth:36, cursor:"default",
-  },
+  elemCell: { display:"flex", flexDirection:"column", alignItems:"center", padding:"5px 6px", borderRadius:7, border:"1px solid", minWidth:36, cursor:"default" },
 
-  /* Stats */
   stats: { display:"flex", gap:10, marginBottom:14 },
   statBox: { display:"flex", flexDirection:"column", alignItems:"center", padding:"9px 14px", borderRadius:11, background:"rgba(56,189,248,0.05)", border:"1px solid rgba(56,189,248,0.12)", gap:2 },
   statN: { fontSize:20, fontWeight:900, color:"#38bdf8", lineHeight:1 },
   statL: { fontSize:10, color:"#64748b", fontWeight:600 },
 
-  /* Tech */
   techRow: { display:"flex", flexWrap:"wrap", gap:6 },
   tech: { padding:"3px 10px", borderRadius:18, fontSize:10, fontWeight:700, background:"rgba(56,189,248,0.06)", border:"1px solid rgba(56,189,248,0.18)", color:"#7dd3fc" },
 
-  /* RIGHT */
+  /* ── DESKTOP RIGHT ── */
   right: { width:455, padding:"36px 32px", position:"relative", zIndex:2, display:"flex", alignItems:"center", justifyContent:"center" },
   shadow: { position:"absolute", inset:0, borderRadius:24, zIndex:-1, background:"rgba(56,189,248,0.05)", border:"1px solid rgba(56,189,248,0.09)", backdropFilter:"blur(8px)" },
+
   card: {
     width:"100%", background:"rgba(10,13,30,0.9)", backdropFilter:"blur(36px)",
     border:"1px solid rgba(255,255,255,0.08)", borderRadius:24,
@@ -840,10 +843,41 @@ hlAI: {
     transition:"transform 0.18s ease, box-shadow 0.18s ease",
     animation:"glowPulse 4.5s ease-in-out infinite",
   },
+
+  /* ── MOBILE SPECIFIC ── */
+  mobileHero: {
+    position:"relative", zIndex:2,
+    padding:"28px 20px 16px",
+    display:"flex", flexDirection:"column", alignItems:"center",
+    gap:0,
+  },
+  mobileBadge: {
+    display:"inline-flex", alignItems:"center", gap:7,
+    background:"rgba(56,189,248,0.07)", border:"1px solid rgba(56,189,248,0.22)",
+    borderRadius:40, padding:"5px 12px 5px 8px", marginBottom:16,
+  },
+  mobileH1: { fontSize:28, fontWeight:900, lineHeight:1.2, color:"#fff", margin:"0 0 12px", letterSpacing:-0.5, textAlign:"center" },
+  mobileAtomWrap: { position:"relative", width:"100%", maxWidth:300, height:150, marginBottom:12 },
+  mobileElemStrip: { display:"flex", gap:5, marginBottom:12, flexWrap:"nowrap", overflowX:"auto", width:"100%", paddingBottom:4, justifyContent:"center" },
+  mobileStats: { display:"flex", gap:8, width:"100%", justifyContent:"center", marginBottom:8 },
+  mobileStatBox: { display:"flex", flexDirection:"column", alignItems:"center", padding:"7px 10px", borderRadius:10, background:"rgba(56,189,248,0.05)", border:"1px solid rgba(56,189,248,0.12)", gap:1, flex:1, maxWidth:80 },
+
+  mobileFormWrapper: {
+    position:"relative", zIndex:2,
+    padding:"0 16px 32px",
+    width:"100%",
+  },
+  mobileCard: {
+    borderRadius:20,
+    padding:"24px 20px 20px",
+    /* No 3D tilt animation on mobile */
+    animation:"glowPulse 4.5s ease-in-out infinite",
+  },
+
+  /* ── SHARED CARD INTERNALS ── */
   cardGlow: { position:"absolute", top:0, left:"9%", right:"9%", height:1.5, background:"linear-gradient(90deg,transparent,#38bdf8 30%,#818cf8 70%,transparent)", borderRadius:"0 0 3px 3px" },
   cardScan: { position:"absolute", left:0, right:0, height:70, pointerEvents:"none", background:"linear-gradient(180deg,transparent,rgba(56,189,248,0.018),transparent)", animation:"cardScan 7s linear infinite" },
 
-  /* Tabs */
   tabs: { display:"flex", background:"rgba(255,255,255,0.04)", borderRadius:10, padding:3, marginBottom:20, gap:3 },
   tab: { flex:1, padding:"8px 0", border:"none", borderRadius:8, background:"transparent", color:"#64748b", fontSize:12, fontWeight:600, cursor:"pointer", transition:"all 0.25s" },
   tabOn: { background:"rgba(56,189,248,0.12)", color:"#38bdf8", boxShadow:"0 0 14px rgba(56,189,248,0.18)", border:"1px solid rgba(56,189,248,0.25)" },
@@ -851,22 +885,18 @@ hlAI: {
   title: { fontSize:20, fontWeight:800, color:"#f1f5f9", margin:"0 0 5px" },
   titleSub: { fontSize:12, color:"#64748b", margin:0, lineHeight:1.5 },
 
-  /* Steps */
   stepsRow: { display:"flex", alignItems:"center", marginBottom:16 },
   dot: { width:23, height:23, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0, transition:"all 0.3s" },
   dotLbl: { fontSize:9, fontWeight:600, whiteSpace:"nowrap", transition:"color 0.3s" },
   stepLine: { flex:1, height:2, borderRadius:2, margin:"0 5px", transition:"background 0.3s" },
 
-  /* Feedback */
   errBox: { background:"rgba(239,68,68,0.07)", border:"1px solid rgba(239,68,68,0.22)", borderRadius:9, padding:"9px 12px", color:"#fca5a5", fontSize:12, marginBottom:12, display:"flex", alignItems:"center", gap:7 },
   sucBox: { background:"rgba(34,197,94,0.07)", border:"1px solid rgba(34,197,94,0.22)", borderRadius:9, padding:"9px 12px", color:"#86efac", fontSize:12, marginBottom:12, display:"flex", alignItems:"center", gap:7 },
 
-  /* Inputs */
-  inp: { width:"100%", padding:"11px 16px 11px 40px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", transition:"all 0.3s", fontFamily:"inherit" },
+  inp: { width:"100%", padding:"12px 16px 12px 40px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", transition:"all 0.3s", fontFamily:"inherit" },
   eyeBtn: { position:"absolute", right:11, background:"transparent", border:"none", cursor:"pointer", color:"#64748b", padding:3, fontSize:14, display:"flex", alignItems:"center" },
 
-  /* Submit */
-  submitBtn: { width:"100%", padding:"13px", border:"none", borderRadius:11, color:"#020617", fontSize:13, fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, marginTop:6, transition:"all 0.3s", boxSizing:"border-box" },
+  submitBtn: { width:"100%", padding:"14px", border:"none", borderRadius:11, color:"#020617", fontSize:13, fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6, marginTop:6, transition:"all 0.3s", boxSizing:"border-box" },
   spin: { width:15, height:15, border:"2px solid rgba(2,6,23,0.25)", borderTopColor:"#020617", borderRadius:"50%", display:"inline-block", animation:"spin 0.7s linear infinite" },
 
   lnk: { color:"#38bdf8", cursor:"pointer", fontWeight:600, fontSize:12 },
