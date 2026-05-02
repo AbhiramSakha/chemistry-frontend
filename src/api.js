@@ -1,5 +1,4 @@
-const BASE = "http://localhost:8000";
-
+const BASE = "https://abhi9716-chemistry-backend.hf.space";
 const authHeaders = () => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${localStorage.getItem("token")}`
