@@ -7,7 +7,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 /* ══════════════════════════════════════════════════════════════
    API HELPERS
 ══════════════════════════════════════════════════════════════ */
-const API = "http://localhost:8000";
+const API = "https://abhi9716-chemistry-backend.hf.space";
 
 async function apiPredict(text, language = "en") {
   const res = await fetch(`${API}/predict`, {
